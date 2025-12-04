@@ -1,14 +1,14 @@
 # TurboFrame
 
-TurboFrame is a friendly DataFrame facade that keeps the pandas API you already know while quietly choosing the fastest compute backend on your machine. Stay in pure Python, write tidy pandas code, and let TurboFrame decide whether CUDA, Apple Metal, or a regular CPU run should own the work.
+TurboFrame is a DataFrame wrapper that keeps the pandas API you know while picking the fastest compute backend available on your machine. Write normal pandas code and let TurboFrame figure out whether to run on CUDA, Apple Metal, or plain CPU.
 
 ## Why TurboFrame exists
 
-Modern laptops and workstations ship with powerful GPUs, yet most data manipulation code still lives on the CPU because moving to GPU-centric libraries usually means rewriting every call site. TurboFrame was built to remove that friction:
+GPUs are everywhere now, but most data code still runs on the CPU because switching to GPU libraries means rewriting everything. TurboFrame fixes that:
 
-1. **API compatibility first.** The methods exposed on `TurboFrame` and `TurboSeries` mirror the pandas experience (select, filter, groupby, merge, etc.).
-2. **Lazy graphs behind the scenes.** Each transformation is queued rather than executed immediately. When you finally request the result, TurboFrame optimizes and dispatches the graph in one go.
-3. **Automatic backend selection.** A registry probes CUDA/cuDF, Apple Metal/MLX, and pandas, picking the highest priority backend that is available at runtime. You can override the choice whenever you like.
+1. **Same API you already use.** `TurboFrame` and `TurboSeries` work like pandas—select, filter, groupby, merge, all the usual stuff.
+2. **Lazy execution.** Operations queue up instead of running immediately. When you ask for results, TurboFrame runs the whole graph at once.
+3. **Picks the best backend automatically.** It checks for CUDA/cuDF, Apple Metal/MLX, and falls back to pandas. Override whenever you want.
 
 ## Installation
 
@@ -18,7 +18,7 @@ cd turboframe
 pip install -r requirements.txt  # pandas + optional cudf/mlx/cupy per platform
 ```
 
-TurboFrame itself is pure Python and depends only on pandas. GPU backends are optional extras; install `cudf`/`cupy` for NVIDIA cards or `mlx` for Apple Silicon when you want accelerated paths.
+TurboFrame itself is pure Python and only needs pandas. For GPU acceleration, install `cudf`/`cupy` on NVIDIA or `mlx` on Apple Silicon.
 
 ## Quick start
 
@@ -40,35 +40,26 @@ result = (
 print(result)
 ```
 
-Because operations are lazy, you can branch and reuse the same base frame without incurring extra compute until you call `compute()` or `to_pandas()`.
+Since operations are lazy, you can branch off the same base frame multiple times without extra compute until you call `compute()` or `to_pandas()`.
 
 ## Core features in v1.0.0
 
-### Lazy orchestration
-- Every `TurboFrame` / `TurboSeries` method appends an `Operation` descriptor instead of executing immediately.
-- Computation graphs are replayed once, reducing redundant intermediate allocations.
+### Lazy execution
+`TurboFrame` and `TurboSeries` methods just append an `Operation` descriptor. The graph runs once when you materialize, so you don't waste time on intermediate results.
 
-### Backend abstraction layer
-- `ComputeBackend` defines `to_native`, `execute`, and `to_pandas` hooks.
-- Included backends:
-  - `CUDABackend` (cuDF + CuPy) for NVIDIA GPUs.
-  - `MetalBackend` (MLX) for Apple Silicon.
-  - `CPUBackend` (pandas) as the universal fallback.
-- `select_backend()` lets you override automatic detection per frame or per compute call.
+### Backend abstraction
+`ComputeBackend` provides `to_native`, `execute`, and `to_pandas` hooks. Included:
+- `CUDABackend` — cuDF + CuPy for NVIDIA GPUs
+- `MetalBackend` — MLX for Apple Silicon
+- `CPUBackend` — pandas fallback
 
-### GPU-friendly operations
-TurboFrame queues the pandas-compatible callables listed below, which map neatly to GPU primitives:
+Use `select_backend()` to override detection per frame or per compute call.
 
-- Aggregations: `aggregate`, `groupby_agg`, `count`, `mean`, etc.
-- Transformations: `assign`, `with_columns`, `apply`, `map_column`, `astype`, `fillna`, `replace`.
-- Filtering: `filter`, `query`, `dropna`, `where` (Series), boolean indexing.
-- Sorting: `sort_values`, `sort_index`.
-- Joins & unions: `merge`, `concat`.
-- String helpers on Series: `str_lower`, `str_upper`, `str_contains`.
+### Supported operations
+Aggregations (`aggregate`, `groupby_agg`, `count`, `mean`, etc.), transformations (`assign`, `with_columns`, `apply`, `fillna`, `replace`), filtering (`filter`, `query`, `dropna`, boolean indexing), sorting (`sort_values`, `sort_index`), joins (`merge`, `concat`), and basic string methods on Series (`str_lower`, `str_upper`, `str_contains`).
 
-### Memory-aware caching
-- Results are cached per backend key so repeated `.compute()` calls avoid recomputation.
-- GPU materialization requests reuse the same backend when chaining frames together (e.g., during `merge` or `concat`).
+### Caching
+Results cache per backend, so repeated `.compute()` calls skip recomputation. Chained frames (like after `merge`) reuse the same backend.
 
 ## Working with backends
 
@@ -76,25 +67,25 @@ TurboFrame queues the pandas-compatible callables listed below, which map neatly
 from turbo_frame import TurboFrame, select_backend
 
 tf = TurboFrame(pdf)
-tf_cuda = tf.with_backend("cuda")  # force a backend by name
+tf_cuda = tf.with_backend("cuda")  # force CUDA
 
 print(TurboFrame.available_backends())  # e.g. ["CUDA", "CPU"]
 
-backend = select_backend()  # returns the best backend object
+backend = select_backend()  # get the best backend object
 tf.compute(backend="cpu")  # override at call time
 ```
 
-Backends declare their availability dynamically, so shipping TurboFrame to colleagues without GPUs is safe—everything falls back to pandas automatically.
+Backends check availability at runtime, so you can share code with people who don't have GPUs—it just falls back to pandas.
 
 ## Project layout
 
 ```
 turbo_frame/
-├── __init__.py      # public API surface
-├── _lazy.py         # shared lazy-object plumbing
-├── operations.py    # dataclasses describing queued operations
-├── frame.py         # TurboFrame facade
-├── series.py        # TurboSeries facade
+├── __init__.py      # public API
+├── _lazy.py         # lazy execution plumbing
+├── operations.py    # operation descriptors
+├── frame.py         # TurboFrame
+├── series.py        # TurboSeries
 └── backends/
     ├── __init__.py
     ├── base.py
@@ -105,10 +96,10 @@ turbo_frame/
 
 ## Roadmap
 
-- Add a disk spill manager for GPUs with limited VRAM.
-- Expand the string accessor coverage to match the pandas `.str` namespace.
-- Ship benchmark notebooks contrasting pandas, cuDF, and MLX backends on common workloads.
+- Disk spill for GPUs with limited VRAM
+- More string methods to match pandas `.str`
+- Benchmark notebooks comparing pandas, cuDF, and MLX
 
 ## License
 
-TurboFrame is released under the Apache 2.0 License (see `LICENSE`).
+Apache 2.0 — see `LICENSE`.
