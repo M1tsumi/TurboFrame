@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "turboframe"
+version = "1.0.0"
+description = "Drop-in pandas facade with automatic GPU acceleration via CUDA/Metal backends."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { file = "LICENSE" }
+authors = [
+  { name = "TurboFrame Authors" }
+]
+dependencies = [
+  "pandas>=1.5"
+]
+
+[project.optional-dependencies]
+cuda = ["cudf>=24.8", "cupy>=12.0"]
+metal = ["mlx>=0.9"]
+tests = []
+
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: OS Independent",
+  "Intended Audience :: Developers",
+]
+
+[project.urls]
+Homepage = "https://github.com/M1tsumi/turboframe"
+Changelog = "https://github.com/M1tsumi/turboframe/blob/main/CHANGELOG.md"
+Source = "https://github.com/M1tsumi/turboframe"
+
+[tool.setuptools.package-dir]
+"" = "."
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["turbo_frame*"]
